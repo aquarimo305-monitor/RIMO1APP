@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .cam-card { border: none; border-radius: 15px; overflow: hidden; transition: 0.3s; }
+        .cam-card:hover { transform: scale(1.02); }
+        .img-time { font-size: 0.8rem; color: gray; }
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <h3 class="mb-4">📸 Camera Archive (Every 6 Hours)</h3>
+        <div class="row g-4" id="camera-gallery">
+            <div class="col-12 text-center" id="loading-msg">
+                <p>Loading your aquarium photos...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <script src="navbar.js"></script>
+
+    <script>
+        // Use the SAME config you used for index.html
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlFo_hv6jsDAJHIRY_6kLe8mPW-0rB8ME",
+            authDomain: "rimo-4c770.firebaseapp.com",
+            databaseURL: "https://rimo-4c770-default-rtdb.firebaseio.com",
+            projectId: "rimo-4c770",
+            storageBucket: "rimo-4c770.firebasestorage.app",
+            messagingSenderId: "472011782582",
+            appId: "1:472011782582:web:3ae7e6b069105c963f2917",
+            measurementId: "G-LX260TEY4M"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // LISTEN FOR ALL IMAGES IN 'camera_history'
+        db.ref('camera_history').on('value', (snapshot) => {
+            const gallery = document.getElementById('camera-gallery');
+            gallery.innerHTML = ""; // Clear the loading message
+            
+            const data = snapshot.val();
+            
+            if (data) {
+                // Loop through every image entry in the database
+                Object.keys(data).forEach(key => {
+                    const item = data[key];
+                    
+                    const cardHtml = `
+                        <div class="col-md-4">
+                            <div class="card cam-card shadow-sm">
+                                <img src="${item.url}" class="card-img-top" alt="Tank Snap">
+                                <div class="card-body p-2 text-center">
+                                    <span class="img-time">${item.timestamp}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    gallery.insertAdjacentHTML('afterbegin', cardHtml);
+                });
+            } else {
+                gallery.innerHTML = "<p class='text-center'>No photos found yet.</p>";
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>.card { border: none; border-radius: 15px; transition: 0.3s; } .card:hover { transform: translateY(-5px); }</style>
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <div id="alert-zone"></div>
+        <div class="row g-4">
+            <div class="col-md-4"><div class="card shadow p-4 text-center"><h5>Temperature</h5><h2 id="disp-temp">--°C</h2></div></div>
+            <div class="col-md-4"><div class="card shadow p-4 text-center"><h5>pH Level</h5><h2 id="disp-ph">--</h2></div></div>
+            <div class="col-md-4"><div class="card shadow p-4 text-center"><h5>ORP</h5><h2 id="disp-orp">-- mV</h2></div></div>
+            <div class="col-md-8"><div class="card shadow p-4"><h5>Latest Snap</h5><img id="latest-img" src="https://via.placeholder.com/600x400?text=Waiting+for+ESP32-CAM" class="img-fluid rounded"></div></div>
+            <div class="col-md-4"><div class="card shadow p-4 text-center bg-primary text-white"><h5>Last Feed</h5><h3 id="last-feed">--:--</h3><p>Next in: 6h 12m</p></div></div>
+        </div>
+    </div>
+    <script src="navbar.js"></script>
+    
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+
+<script>
+  // 1. Fixed Configuration Block
+  const firebaseConfig = {
+    apiKey: "AIzaSyBlFo_hv6jsDAJHIRY_6kLe8mPW-0rB8ME",
+    authDomain: "rimo-4c770.firebaseapp.com",
+    databaseURL: "https://rimo-4c770-default-rtdb.firebaseio.com",
+    projectId: "rimo-4c770",
+    storageBucket: "rimo-4c770.firebasestorage.app",
+    messagingSenderId: "472011782582",
+    appId: "1:472011782582:web:3ae7e6b069105c963f2917",
+    measurementId: "G-LX260TEY4M"
+  };
+
+  // 2. Initialize
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // 3. Live Listener
+// 3. Live Listener - Updated for History-Based Nodes
+  
+  // A. Fetch Latest Temperature
+  db.ref('temp_history').limitToLast(1).on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      const latestKey = Object.keys(data)[0];
+      const val = data[latestKey].value; // Accesses the 'value' key from your history entry
+      document.getElementById('disp-temp').innerText = val + "°C";
+
+      // Updated Alarm Logic for Goldfish (Kolkata Winter)
+      const alertZone = document.getElementById('alert-zone');
+      if (val < 18 || val > 26) {
+        alertZone.innerHTML = `<div class="alert alert-danger">⚠️ <b>Warning:</b> Temperature is ${val}°C!</div>`;
+      } else {
+        alertZone.innerHTML = ""; 
+      }
+    }
+  });
+
+  // B. Fetch Latest pH
+  db.ref('ph_history').limitToLast(1).on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      const latestKey = Object.keys(data)[0];
+      document.getElementById('disp-ph').innerText = data[latestKey].value;
+    }
+  });
+
+  // C. Fetch Latest Snap
+  db.ref('camera_history').limitToLast(1).on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      const latestKey = Object.keys(data)[0];
+      document.getElementById('latest-img').src = data[latestKey].url; // Pulls real URL from history
+    }
+  });
+
+  // D. Fetch Latest Feed Status
+  db.ref('feeder_history').limitToLast(1).on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      const latestKey = Object.keys(data)[0];
+      document.getElementById('last-feed').innerText = data[latestKey].time;
+    }
+  });
+</script>

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RIMO - Temperature Detail</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+</head>
+<body class="bg-light">
+    <div class="container mt-4">
+        <div class="card shadow p-4">
+            <h3 id="chart-title">Temperature History (°C)</h3>
+            <canvas id="tempChart" height="100"></canvas>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <script src="navbar.js"></script>
+
+    <script>
+        // Initialize EmailJS immediately
+        emailjs.init("TaAvoWcHSyIX4HQ37"); 
+        
+        const userEmail = localStorage.getItem('rimo_email'); 
+        const tankType = localStorage.getItem('rimo_tank_type') || 'freshwater'; 
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlFo_hv6jsDAJHIRY_6kLe8mPW-0rB8ME",
+            authDomain: "rimo-4c770.firebaseapp.com",
+            databaseURL: "https://rimo-4c770-default-rtdb.firebaseio.com",
+            projectId: "rimo-4c770",
+            storageBucket: "rimo-4c770.firebasestorage.app",
+            messagingSenderId: "472011782582",
+            appId: "1:472011782582:web:3ae7e6b069105c963f2917"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Safe thresholds for Kolkata Winter
+        const limits = (tankType === 'saltwater') 
+            ? { min: 24, max: 28 } : { min: 18, max: 26 };
+
+        const ctx = document.getElementById('tempChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Temp', data: [], borderColor: '#ff6384', tension: 0.3 }] },
+            options: { scales: { y: { min: 15, max: 32 } } }
+        });
+
+        let lastEmailTime = 0;
+        db.ref('temp_history').limitToLast(12).on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const labels = []; const values = [];
+            Object.keys(data).forEach(key => {
+                labels.push(data[key].time);
+                values.push(data[key].value);
+            });
+
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = values;
+            chart.update();
+
+            const latestVal = values[values.length - 1];
+            if ((latestVal < limits.min || latestVal > limits.max) && (Date.now() - lastEmailTime > 3600000)) {
+                sendWarning("Temperature", latestVal);
+                lastEmailTime = Date.now();
+            }
+        });
+
+        function sendWarning(param, val) {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+            emailjs.send("service_js0niy1", "template_fslbcqb", {
+                to_email: userEmail,
+                parameter: param,
+                current_value: val,
+                tank_type: tankType,
+                time: timeString,
+                safe_range: `${limits.min}-${limits.max}°C`,
+                message: `Warning! Your ${tankType} tank temperature is ${val}°C.`
+            }, "TaAvoWcHSyIX4HQ37");
+        }
+    </script>
+</body>
+</html>
