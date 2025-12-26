@@ -21,6 +21,12 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <script>
+    // If no email is found in memory, send the user to the login page
+    if (!localStorage.getItem('rimo_email')) {
+        window.location.href = "login.html";
+    }
+</script>
 
 <script>
   // 1. Fixed Configuration Block
@@ -88,3 +94,4 @@
   });
 
 </script>
+
