@@ -139,6 +139,7 @@
         });
 
         // B. pH Level Listener (Matches Screenshot Variables)
+        // B. pH Level Listener (Visual Alert + Email)
         db.ref('ph_history').limitToLast(1).on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
@@ -146,14 +147,21 @@
                 const val = parseFloat(data[latestKey].value);
                 document.getElementById('disp-ph').innerText = val;
 
-                // pH Alert Logic
+                // --- 1. DEFINE THE ALERT ZONE (Critical Step) ---
+                const alertZone = document.getElementById('alert-zone');
+
+                // --- 2. pH Alert Logic (Target 6.5 - 8.0) ---
                 if (val < 6.5 || val > 8.0) {
+                    
+                    // A. THIS IS THE NEW LINE FOR THE RED BOX:
+                    alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>CRITICAL:</b> pH Level is ${val}! Water is unsafe.</div>`;
+
+                    // B. SEND EMAIL
                     const lastSent = localStorage.getItem('last_ph_email');
                     const now = Date.now();
 
                     if (!lastSent || (now - lastSent > 3600000)) {
                         
-                        // Matches your Screenshot Template Variables
                         emailjs.send("service_js0niy1", "template_fslbcqb", {
                             parameter: "pH Level",
                             current_value: val, 
