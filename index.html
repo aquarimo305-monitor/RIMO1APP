@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RIMO - Smart Tank Monitor</title>
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+
     <style>
         .card { border: none; border-radius: 15px; transition: 0.3s; }
         .card:hover { transform: translateY(-5px); }
@@ -69,9 +73,13 @@
 
     <script>
         // Check Login State
-        if (!localStorage.getItem('rimo_email')) {
+        const userEmail = localStorage.getItem('rimo_email');
+        if (!userEmail) {
             window.location.href = "login.html";
         }
+
+        // --- 1. INITIALIZE EMAILJS ---
+        emailjs.init("TaAvoWcHSyIX4HQ37");
 
         // Firebase Configuration
         const firebaseConfig = {
@@ -86,32 +94,80 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // LIVE LISTENERS - Pulling from History Nodes
+        // LIVE LISTENERS
 
-        // A. Temperature Listener
+        // A. Temperature Listener (Matches Screenshot Variables)
         db.ref('temp_history').limitToLast(1).on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 const latestKey = Object.keys(data)[0];
-                const val = data[latestKey].value;
+                const val = parseFloat(data[latestKey].value);
                 document.getElementById('disp-temp').innerText = val + "°C";
 
                 // Warning Logic (Kolkata Winter Thresholds)
                 const alertZone = document.getElementById('alert-zone');
                 if (val < 18 || val > 26) {
                     alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>Warning:</b> Tank temperature is ${val}°C. Please check the heater.</div>`;
+                    
+                    // --- EMAIL TRIGGER ---
+                    const lastSent = localStorage.getItem('last_temp_email');
+                    const now = Date.now();
+                    
+                    // Throttle: 1 Hour
+                    if (!lastSent || (now - lastSent > 3600000)) {
+                        
+                        // Matches your Screenshot Template Variables
+                        emailjs.send("service_js0niy1", "template_fslbcqb", {
+                            parameter: "Temperature",
+                            current_value: val + "°C",
+                            tank_type: "RIMO Goldfish Tank",
+                            time: new Date().toLocaleTimeString(),
+                            safe_range: "18-26°C",
+                            message: "Temperature Critical! Check Heater.",
+                            user_email: userEmail  // Used for Multi-User routing
+                        }).then(() => {
+                            console.log("Temp Alert sent to: " + userEmail);
+                            localStorage.setItem('last_temp_email', now);
+                        });
+                    }
+                    // ---------------------
+
                 } else {
                     alertZone.innerHTML = ""; 
                 }
             }
         });
 
-        // B. pH Level Listener
+        // B. pH Level Listener (Matches Screenshot Variables)
         db.ref('ph_history').limitToLast(1).on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 const latestKey = Object.keys(data)[0];
-                document.getElementById('disp-ph').innerText = data[latestKey].value;
+                const val = parseFloat(data[latestKey].value);
+                document.getElementById('disp-ph').innerText = val;
+
+                // pH Alert Logic
+                if (val < 6.5 || val > 8.0) {
+                    const lastSent = localStorage.getItem('last_ph_email');
+                    const now = Date.now();
+
+                    if (!lastSent || (now - lastSent > 3600000)) {
+                        
+                        // Matches your Screenshot Template Variables
+                        emailjs.send("service_js0niy1", "template_fslbcqb", {
+                            parameter: "pH Level",
+                            current_value: val, 
+                            tank_type: "RIMO Goldfish Tank",
+                            time: new Date().toLocaleTimeString(),
+                            safe_range: "7.0-7.5",
+                            message: "pH is unstable! Check water quality.",
+                            user_email: userEmail
+                        }).then(() => {
+                            console.log("pH Alert sent to: " + userEmail);
+                            localStorage.setItem('last_ph_email', now);
+                        });
+                    }
+                }
             }
         });
 
