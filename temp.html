@@ -76,7 +76,7 @@
             const timeString = now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
 
             emailjs.send("service_js0niy1", "template_fslbcqb", {
-                to_email: userEmail,
+                user_email: userEmail,
                 parameter: param,
                 current_value: val,
                 tank_type: tankType,
@@ -89,3 +89,4 @@
 </body>
 
 </html>
+
