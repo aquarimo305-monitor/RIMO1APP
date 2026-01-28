@@ -186,7 +186,7 @@
             if (data) {
                 const latestKey = Object.keys(data)[0];
                 document.getElementById('latest-img').src = data[latestKey].url;
-                document.getElementById('snap-timestamp').innerText = data[latestKey].time || "Live";
+                document.getElementById('snap-timestamp').innerText = data[latestKey].timestamp || "Live";
             }
         });
 
@@ -201,4 +201,5 @@
     </script>
 </body>
 </html>
+
 
