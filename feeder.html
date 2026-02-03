@@ -1,12 +1,35 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RIMO - Feeder Status</title>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="manifest" href="manifest.json">
 </head>
 <body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+      <div class="container">
+        <a class="navbar-brand text-warning fw-bold" href="index.html">🐠 RIMO Archive</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto text-center">
+            <li class="nav-item"><a class="nav-link" href="index.html">🏠 Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="camera.html">📷 Camera</a></li>
+            <li class="nav-item"><a class="nav-link" href="ph.html">💧 pH History</a></li>
+            <li class="nav-item"><a class="nav-link" href="temp.html">🌡️ Temp History</a></li>
+            <li class="nav-item"><a class="nav-link active" href="feeder.html">🐟 Feeder</a></li>
+            <li class="nav-item"><a class="nav-link text-danger" href="#" onclick="logout()">🚪 Logout</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
     <div class="container mt-4 text-center">
-        <link rel="manifest" href="manifest.json">
         <div class="card shadow p-4 mb-4 bg-primary text-white">
             <h3>Last Feed: <span id="last-feed-time">--:--</span></h3>
             <p>Status: <span id="feed-status">Waiting...</span></p>
@@ -26,9 +49,14 @@
 
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-    <script src="navbar.js"></script>
 
     <script>
+        // Logout Logic
+        function logout() {
+            localStorage.removeItem('rimo_email');
+            window.location.href = 'login.html';
+        }
+
         const firebaseConfig = {
             apiKey: "AIzaSyBlFo_hv6jsDAJHIRY_6kLe8mPW-0rB8ME",
             authDomain: "rimo-4c770.firebaseapp.com",
@@ -44,6 +72,7 @@
         const db = firebase.database();
 
         // 1. Listen for the absolute latest feed status
+        // Looking at 'tank_stats/last_feed' which stores the simple string time
         db.ref('tank_stats').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data && data.last_feed) {
@@ -61,16 +90,24 @@
             if (data) {
                 // Reverse keys to show newest feed at the top
                 Object.keys(data).reverse().forEach(key => {
-                    const row = `<tr>
-                        <td>${data[key].time}</td>
-                        <td><span class="badge bg-success">${data[key].status}</span></td>
-                    </tr>`;
-                    logTable.insertAdjacentHTML('beforeend', row);
+                    const item = data[key];
+                    // Ensure valid data before printing
+                    if(item.time) {
+                        const statusBadge = item.status 
+                            ? `<span class="badge bg-success">${item.status}</span>` 
+                            : `<span class="badge bg-success">Success</span>`;
+                            
+                        const row = `<tr>
+                            <td>${item.time}</td>
+                            <td>${statusBadge}</td>
+                        </tr>`;
+                        logTable.insertAdjacentHTML('beforeend', row);
+                    }
                 });
+            } else {
+                 logTable.innerHTML = "<tr><td colspan='2'>No feeding records yet.</td></tr>";
             }
         });
     </script>
 </body>
-
 </html>
-
