@@ -18,7 +18,21 @@
     </style>
 </head>
 <body class="bg-light">
-    <div id="nav-container"></div>
+    
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand fw-bold text-warning" href="index.html">🐠 RIMO Monitor</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto text-center">
+                    <li class="nav-item"><a class="nav-link active" href="index.html">🏠 Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#" onclick="logout()">🚪 Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
 
     <div class="container mt-4">
         <div id="alert-zone"></div>
@@ -31,6 +45,7 @@
                     <small class="text-muted">Target: 18-26°C</small>
                 </div>
             </div>
+
             <div class="col-md-4 col-12">
                 <div class="card shadow p-4 text-center">
                     <h5>pH Level</h5>
@@ -38,6 +53,7 @@
                     <small class="text-muted">Target: 7.0-7.5</small>
                 </div>
             </div>
+
             <div class="col-md-4 col-12">
                 <div class="card shadow p-4 text-center">
                     <h5>ORP</h5>
@@ -50,7 +66,7 @@
                 <div class="card shadow p-4">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h5 class="mb-0">Latest Snap</h5>
-                        <span id="snap-timestamp" class="badge bg-secondary">--:--</span>
+                        <span id="snap-timestamp" class="badge bg-secondary">Waiting...</span>
                     </div>
                     <img id="latest-img" src="https://via.placeholder.com/600x400?text=Waiting+for+RIMO+Capture..." class="img-fluid rounded border">
                 </div>
@@ -70,19 +86,21 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     
-    <script src="navbar.js"></script>
-
     <script>
-        // Check Login State
+        // --- AUTH CHECK ---
         const userEmail = localStorage.getItem('rimo_email');
         if (!userEmail) {
             window.location.href = "login.html";
         }
+        function logout() {
+            localStorage.removeItem('rimo_email');
+            window.location.href = 'login.html';
+        }
 
-        // --- 1. INITIALIZE EMAILJS ---
+        // --- EMAILJS INIT ---
         emailjs.init("TaAvoWcHSyIX4HQ37");
 
-        // Firebase Configuration
+        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
             apiKey: "AIzaSyBlFo_hv6jsDAJHIRY_6kLe8mPW-0rB8ME",
             authDomain: "rimo-4c770.firebaseapp.com",
@@ -95,111 +113,93 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // LIVE LISTENERS
 
-        // A. Temperature Listener (Matches Screenshot Variables)
-        db.ref('temp_history').limitToLast(1).on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const latestKey = Object.keys(data)[0];
-                const val = parseFloat(data[latestKey].value);
+        // --- 1. TEMPERATURE LISTENER (Fixed Path: tank_stats/temperature) ---
+        db.ref('tank_stats/temperature').on('value', (snapshot) => {
+            const val = snapshot.val(); // Direct value (e.g., 26.5)
+            
+            if (val !== null) {
                 document.getElementById('disp-temp').innerText = val + "°C";
 
-                // Warning Logic (Kolkata Winter Thresholds)
+                // Alert Logic
                 const alertZone = document.getElementById('alert-zone');
-                if (val < 18 || val > 26) {
-                    alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>Warning:</b> Tank temperature is ${val}°C. Please check the heater.</div>`;
-                    
-                    // --- EMAIL TRIGGER ---
-                    const lastSent = localStorage.getItem('last_temp_email');
-                    const now = Date.now();
-                    
-                    // Throttle: 1 Hour
-                    if (!lastSent || (now - lastSent > 3600000)) {
-                        
-                        // Matches your Screenshot Template Variables
-                        emailjs.send("service_js0niy1", "template_fslbcqb", {
-                            parameter: "Temperature",
-                            current_value: val + "°C",
-                            tank_type: "RIMO Goldfish Tank",
-                            time: new Date().toLocaleTimeString(),
-                            safe_range: "18-26°C",
-                            message: "Temperature Critical! Check Heater.",
-                            user_email: userEmail  // Used for Multi-User routing
-                        }).then(() => {
-                            console.log("Temp Alert sent to: " + userEmail);
-                            localStorage.setItem('last_temp_email', now);
-                        });
-                    }
-                    // ---------------------
-
+                if (val < 18 || val > 28) {
+                    alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>Warning:</b> Tank temperature is ${val}°C. Check Heater!</div>`;
+                    sendEmailAlert("Temperature", val + "°C", "Temperature Critical!", "last_temp_email");
                 } else {
-                    alertZone.innerHTML = ""; 
+                    // Only clear if pH is also safe (simple check)
+                    if(!document.getElementById('alert-zone').innerHTML.includes("pH")) {
+                        alertZone.innerHTML = ""; 
+                    }
                 }
             }
         });
 
-        // B. pH Level Listener (Matches Screenshot Variables)
-        // B. pH Level Listener (Visual Alert + Email)
-        db.ref('ph_history').limitToLast(1).on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const latestKey = Object.keys(data)[0];
-                const val = parseFloat(data[latestKey].value);
+
+        // --- 2. pH LISTENER (Fixed Path: tank_stats/ph) ---
+        db.ref('tank_stats/ph').on('value', (snapshot) => {
+            const val = snapshot.val(); // Direct value (e.g., 7.2)
+
+            if (val !== null) {
                 document.getElementById('disp-ph').innerText = val;
 
-                // --- 1. DEFINE THE ALERT ZONE (Critical Step) ---
+                // Alert Logic
                 const alertZone = document.getElementById('alert-zone');
-
-                // --- 2. pH Alert Logic (Target 6.5 - 8.0) ---
                 if (val < 6.5 || val > 8.0) {
-                    
-                    // A. THIS IS THE NEW LINE FOR THE RED BOX:
-                    alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>CRITICAL:</b> pH Level is ${val}! Water is unsafe.</div>`;
-
-                    // B. SEND EMAIL
-                    const lastSent = localStorage.getItem('last_ph_email');
-                    const now = Date.now();
-
-                    if (!lastSent || (now - lastSent > 3600000)) {
-                        
-                        emailjs.send("service_js0niy1", "template_fslbcqb", {
-                            parameter: "pH Level",
-                            current_value: val, 
-                            tank_type: "RIMO Goldfish Tank",
-                            time: new Date().toLocaleTimeString(),
-                            safe_range: "7.0-7.5",
-                            message: "pH is unstable! Check water quality.",
-                            user_email: userEmail
-                        }).then(() => {
-                            console.log("pH Alert sent to: " + userEmail);
-                            localStorage.setItem('last_ph_email', now);
-                        });
-                    }
+                    alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>CRITICAL:</b> pH Level is ${val}! Water unsafe.</div>`;
+                    sendEmailAlert("pH Level", val, "pH Unstable! Check Water.", "last_ph_email");
                 }
             }
         });
 
-        // C. OV3660 Camera History
-        db.ref('camera_history').limitToLast(1).on('value', (snapshot) => {
+
+        // --- 3. CAMERA LISTENER (Fixed Path: image_urls) ---
+        // ESP32 saves images to 'image_urls'. We grab the last one.
+        db.ref('image_urls').limitToLast(1).on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                const latestKey = Object.keys(data)[0];
-                document.getElementById('latest-img').src = data[latestKey].url;
-                document.getElementById('snap-timestamp').innerText = data[latestKey].timestamp || "Live";
+                const key = Object.keys(data)[0]; // Get the strange key "-Oku..."
+                const imageUrl = data[key];       // Get the actual link
+                
+                document.getElementById('latest-img').src = imageUrl;
+                document.getElementById('snap-timestamp').innerText = "Live Capture";
             }
         });
 
-        // D. Feeder History (12h Cycle)
-        db.ref('feeder_history').limitToLast(1).on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const latestKey = Object.keys(data)[0];
-                document.getElementById('last-feed').innerText = data[latestKey].time;
+
+        // --- 4. FEEDER LISTENER (Fixed Path: tank_stats/last_feed) ---
+        // Assuming you might add this to ESP32 later. 
+        // For now, it reads from the same simple path.
+        db.ref('tank_stats/last_feed').on('value', (snapshot) => {
+            const val = snapshot.val();
+            if (val) {
+                document.getElementById('last-feed').innerText = val;
             }
         });
+
+
+        // --- HELPER: EMAIL SENDER ---
+        function sendEmailAlert(paramName, val, msg, storageKey) {
+            const lastSent = localStorage.getItem(storageKey);
+            const now = Date.now();
+
+            // Send only once per hour (3600000 ms)
+            if (!lastSent || (now - lastSent > 3600000)) {
+                emailjs.send("service_js0niy1", "template_fslbcqb", {
+                    parameter: paramName,
+                    current_value: val,
+                    tank_type: "RIMO Goldfish Tank",
+                    time: new Date().toLocaleTimeString(),
+                    safe_range: "Normal Range",
+                    message: msg,
+                    user_email: userEmail
+                }).then(() => {
+                    console.log(`Email sent for ${paramName}`);
+                    localStorage.setItem(storageKey, now);
+                });
+            }
+        }
+
     </script>
 </body>
 </html>
-
-
