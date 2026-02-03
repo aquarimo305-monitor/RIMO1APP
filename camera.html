@@ -16,28 +16,50 @@
     </style>
 </head>
 <body class="bg-light">
-    <div id="nav-container"></div>
+    
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+      <div class="container">
+        <a class="navbar-brand text-warning fw-bold" href="index.html">🐠 RIMO Archive</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto text-center">
+            <li class="nav-item"><a class="nav-link" href="index.html">🏠 Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link active" href="camera.html">📷 Camera</a></li>
+            <li class="nav-item"><a class="nav-link" href="ph.html">💧 pH History</a></li>
+            <li class="nav-item"><a class="nav-link" href="temp.html">🌡️ Temp History</a></li>
+            <li class="nav-item"><a class="nav-link" href="feeder.html">🐟 Feeder</a></li>
+            <li class="nav-item"><a class="nav-link text-danger" href="#" onclick="logout()">🚪 Logout</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
 
     <div class="container mt-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h3>📸 Camera Archive</h3>
-            <span class="badge bg-info text-dark">Updates every 6h</span>
+            <span class="badge bg-info text-dark">Last 50 Snaps</span>
         </div>
         
         <div class="row g-4" id="camera-gallery">
             <div class="col-12 text-center" id="loading-msg">
                 <div class="spinner-border text-primary" role="status"></div>
-                <p class="mt-2">Fetching aquarium history...</p>
+                <p class="mt-2">Loading photos from RIMO cloud...</p>
             </div>
         </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-    <script src="navbar.js"></script>
 
     <script>
-        // Use your verified RIMO configuration
+        // Logout Logic
+        function logout() {
+            localStorage.removeItem('rimo_email');
+            window.location.href = 'login.html';
+        }
+
         const firebaseConfig = {
             apiKey: "AIzaSyBlFo_hv6jsDAJHIRY_6kLe8mPW-0rB8ME",
             authDomain: "rimo-4c770.firebaseapp.com",
@@ -51,30 +73,35 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // LISTEN FOR ALL IMAGES IN 'camera_history'
-        db.ref('camera_history').on('value', (snapshot) => {
+        // 2. FIXED PATH: 'image_urls' (Not camera_history)
+        // We limit to last 50 to prevent crashing your phone with 1000s of images
+        db.ref('image_urls').limitToLast(50).on('value', (snapshot) => {
             const gallery = document.getElementById('camera-gallery');
-            gallery.innerHTML = ""; // Clear loader
+            gallery.innerHTML = ""; 
             
             const data = snapshot.val();
             
             if (data) {
-                // Convert object to array and reverse to show newest first
+                // Reverse to show NEWEST photos at the top
                 const keys = Object.keys(data).reverse();
                 
                 keys.forEach(key => {
-                    const item = data[key];
-                    // item.url and item.time come from your OV3660 code
+                    const imageUrl = data[key]; // In your DB, the value IS the url string
+                    
+                    // Simple logic to extract a "Fake Time" from filename if possible
+                    // Your filename is typically: photo_123456.jpg
+                    let displayTime = "Snapshot ID: " + key.substring(1, 6); 
+
                     const cardHtml = `
                         <div class="col-md-4 col-sm-6 col-12">
                             <div class="card cam-card shadow-sm">
                                 <div class="img-container">
-                                    <img src="${item.url}" alt="Tank Capture">
+                                    <img src="${imageUrl}" alt="Tank Capture" loading="lazy">
                                 </div>
                                 <div class="card-body p-2 text-center bg-white">
-                                    <span class="img-time">🕒 ${item.time || 'Unknown Time'}</span>
+                                    <span class="img-time">📂 ${displayTime}</span>
                                     <br>
-                                    <a href="${item.url}" download="RIMO_${key}.jpg" class="btn btn-link btn-sm p-0">Save Photo</a>
+                                    <a href="${imageUrl}" target="_blank" class="btn btn-link btn-sm p-0">View Full Size</a>
                                 </div>
                             </div>
                         </div>
@@ -82,10 +109,9 @@
                     gallery.insertAdjacentHTML('beforeend', cardHtml);
                 });
             } else {
-                gallery.innerHTML = "<div class='col-12 text-center text-muted'><p>No photos archived yet. Ensure your ESP32-CAM is powered.</p></div>";
+                gallery.innerHTML = "<div class='col-12 text-center text-muted'><p>No photos found in 'image_urls'.</p></div>";
             }
         });
     </script>
 </body>
 </html>
-
