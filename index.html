@@ -1,245 +1,130 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RIMO - Smart Tank Monitor</title>
-    
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <link rel="manifest" href="manifest.json">
-    
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script>
+    // --- AUTH CHECK ---
+    const userEmail = localStorage.getItem('rimo_email');
+    if (!userEmail) window.location.href = "login.html";
+    function logout() {
+        localStorage.removeItem('rimo_email');
+        window.location.href = 'login.html';
+    }
 
-    <style>
-        .card { border: none; border-radius: 15px; transition: 0.3s; }
-        .card:hover { transform: translateY(-5px); }
-        #latest-img { width: 100%; height: auto; object-fit: cover; max-height: 400px; }
-    </style>
-</head>
-<body class="bg-light">
-    
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold text-warning" href="index.html">🐠 RIMO Monitor</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto text-center">
-                    <li class="nav-item"><a class="nav-link active" href="index.html">🏠 Dashboard</a></li>
-                    <li class="nav-item"><a class="nav-link" href="camera.html">📷 Camera History</a></li>
-                    <li class="nav-item"><a class="nav-link" href="ph.html">💧 pH History</a></li>
-                    <li class="nav-item"><a class="nav-link" href="temp.html">🌡️ Temp History</a></li>
-                    <li class="nav-item"><a class="nav-link" href="feeder.html">🐟 Feeder</a></li>
-                    <li class="nav-item"><a class="nav-link text-danger" href="#" onclick="logout()">🚪 Logout</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    // --- INITIALIZE EMAIL SYSTEM ---
+    emailjs.init("TaAvoWcHSyIX4HQ37");
 
-    <div class="container mt-4">
-        <div id="alert-zone"></div>
-
-        <div class="row g-4">
-            <div class="col-md-4 col-12">
-                <div class="card shadow p-4 text-center">
-                    <h5>Temperature</h5>
-                    <h2 id="disp-temp" class="fw-bold">--°C</h2>
-                    <small class="text-muted">Target: 18-26°C</small>
-                </div>
-            </div>
-
-            <div class="col-md-4 col-12">
-                <div class="card shadow p-4 text-center">
-                    <h5>pH Level</h5>
-                    <h2 id="disp-ph" class="fw-bold">--</h2>
-                    <small class="text-muted">Target: 7.0-7.5</small>
-                </div>
-            </div>
-
-            <div class="col-md-4 col-12">
-                <div class="card shadow p-4 text-center">
-                    <h5>ORP</h5>
-                    <h2 id="disp-orp" class="fw-bold">-- mV</h2>
-                    <small class="text-muted">N/A</small>
-                </div>
-            </div>
-
-            <div class="col-md-8 col-12">
-                <div class="card shadow p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <h5 class="mb-0">Latest Snap</h5>
-                        <span id="snap-timestamp" class="badge bg-secondary">Waiting...</span>
-                    </div>
-                    <img id="latest-img" src="https://via.placeholder.com/600x400?text=Waiting+for+RIMO+Capture..." class="img-fluid rounded border">
-                </div>
-            </div>
-
-            <div class="col-md-4 col-12">
-                <div class="card shadow p-4 text-center bg-primary text-white">
-                    <h5>Last Feed</h5>
-                    <h3 id="last-feed" class="fw-bold">--:--</h3>
-                    <p class="mb-0">Quantity: 3g Optimum</p>
-                    <small>Schedule: Every 12 hours</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
-    
-    <script>
-        // --- AUTH CHECK ---
-        const userEmail = localStorage.getItem('rimo_email');
-        if (!userEmail) {
-            window.location.href = "login.html";
-        }
-        function logout() {
-            localStorage.removeItem('rimo_email');
-            window.location.href = 'login.html';
-        }
-
-        // --- EMAILJS INIT ---
-        emailjs.init("TaAvoWcHSyIX4HQ37");
-
-        // --- FIREBASE CONFIG ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyBlFo_hv6jsDAJHIRY_6kLe8mPW-0rB8ME",
-            authDomain: "rimo-4c770.firebaseapp.com",
-            databaseURL: "https://rimo-4c770-default-rtdb.firebaseio.com",
-            projectId: "rimo-4c770",
-            storageBucket: "rimo-4c770.firebasestorage.app",
-            messagingSenderId: "472011782582",
-            appId: "1:472011782582:web:3ae7e6b069105c963f2917"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+    // --- FIREBASE CONFIG ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyBlFo_hv6jsDAJHIRY_6kLe8mPW-0rB8ME",
+        authDomain: "rimo-4c770.firebaseapp.com",
+        databaseURL: "https://rimo-4c770-default-rtdb.firebaseio.com",
+        projectId: "rimo-4c770",
+        storageBucket: "rimo-4c770.firebasestorage.app",
+        messagingSenderId: "472011782582",
+        appId: "1:472011782582:web:3ae7e6b069105c963f2917"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
 
-        // --- 1. TEMPERATURE LISTENER (Live + History + Email) ---
-        db.ref('tank_stats/temperature').on('value', (snapshot) => {
-            const val = snapshot.val(); 
-            
-            if (val !== null) {
-                // A. Update Screen
+    // ==========================================
+    // 1. TEMPERATURE (Read from History, NOT tank_stats)
+    // ==========================================
+    // We grab the LAST 1 entry from history to use as "Live Data"
+    db.ref('temp_history').limitToLast(1).on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const key = Object.keys(data)[0];
+            const val = parseFloat(data[key].value); // Grab value from history
+
+            // Handle "Sensor Error" (-127 is the code for disconnected wire)
+            if (val === -127) {
+                document.getElementById('disp-temp').innerText = "Err";
+                document.getElementById('alert-zone').innerHTML = `<div class="alert alert-warning shadow-sm">⚠️ <b>Check Wiring:</b> Temp Sensor disconnected (-127).</div>`;
+            } else {
                 document.getElementById('disp-temp').innerText = val + "°C";
-
-                // B. Ghost Recorder: Save to history if needed
-                checkAndSaveHistory('temp_history', val);
-
-                // C. Alert Logic
+                
+                // Alert Logic
                 const alertZone = document.getElementById('alert-zone');
                 if (val < 18 || val > 28) {
-                    alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>Warning:</b> Tank temperature is ${val}°C. Check Heater!</div>`;
-                    sendEmailAlert("Temperature", val + "°C", "Temperature Critical!", "last_temp_email");
+                    alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>Warning:</b> Tank temp is ${val}°C. Check Heater!</div>`;
+                    sendEmailAlert("Temperature", val + "°C", "Critical Temperature!", "last_temp_email");
                 } else {
-                    if(!document.getElementById('alert-zone').innerHTML.includes("pH")) {
-                        alertZone.innerHTML = ""; 
-                    }
+                    if(!document.getElementById('alert-zone').innerHTML.includes("pH")) alertZone.innerHTML = ""; 
                 }
             }
-        });
+        }
+    });
 
 
-        // --- 2. pH LISTENER (Live + History + Email) ---
-        db.ref('tank_stats/ph').on('value', (snapshot) => {
-            const val = snapshot.val();
+    // ==========================================
+    // 2. pH SYSTEM (Read from History, NOT tank_stats)
+    // ==========================================
+    db.ref('ph_history').limitToLast(1).on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const key = Object.keys(data)[0];
+            const val = parseFloat(data[key].value); // Grab value from history
 
-            if (val !== null) {
-                // A. Update Screen
-                document.getElementById('disp-ph').innerText = val;
+            document.getElementById('disp-ph').innerText = val;
 
-                // B. Ghost Recorder: Save to history if needed
-                checkAndSaveHistory('ph_history', val);
-
-                // C. Alert Logic
-                const alertZone = document.getElementById('alert-zone');
-                if (val < 6.5 || val > 8.0) {
-                    alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>CRITICAL:</b> pH Level is ${val}! Water unsafe.</div>`;
-                    sendEmailAlert("pH Level", val, "pH Unstable! Check Water.", "last_ph_email");
-                }
+            // Alert Logic
+            const alertZone = document.getElementById('alert-zone');
+            if (val < 6.5 || val > 8.0) {
+                alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>CRITICAL:</b> pH is ${val}! Water unsafe.</div>`;
+                sendEmailAlert("pH Level", val, "pH Unstable! Check Water.", "last_ph_email");
             }
-        });
+        }
+    });
 
 
-        // --- 3. CAMERA LISTENER ---
-        db.ref('image_urls').limitToLast(1).on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                const key = Object.keys(data)[0]; 
-                const imageUrl = data[key];       
-                document.getElementById('latest-img').src = imageUrl;
-                document.getElementById('snap-timestamp').innerText = "Live Capture";
-            }
-        });
+    // ==========================================
+    // 3. CAMERA (Reads from image_urls)
+    // ==========================================
+    // You confirmed this folder is updating correctly
+    db.ref('image_urls').limitToLast(1).on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const key = Object.keys(data)[0];
+            const imageUrl = data[key];
+            document.getElementById('latest-img').src = imageUrl;
+            document.getElementById('snap-timestamp').innerText = "Live Capture";
+        }
+    });
 
 
-        // --- 4. FEEDER LISTENER ---
-        db.ref('tank_stats/last_feed').on('value', (snapshot) => {
-            const val = snapshot.val();
-            if (val) {
-                document.getElementById('last-feed').innerText = val;
-            }
-        });
+    // ==========================================
+    // 4. FEEDER (Reads from feeder_history)
+    // ==========================================
+    // Switching this to history as well, just in case
+    db.ref('feeder_history').limitToLast(1).on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const key = Object.keys(data)[0];
+            const lastFeedTime = data[key].time;
+            document.getElementById('last-feed').innerText = lastFeedTime;
+        }
+    });
 
 
-        // --- 5. GHOST RECORDER FUNCTION (The Fix for Graphs) ---
-        // This checks if history hasn't been saved in 15 mins. If so, it saves it.
-        function checkAndSaveHistory(folderName, currentValue) {
-            const ref = db.ref(folderName);
-            
-            ref.limitToLast(1).once('value').then(snapshot => {
-                const data = snapshot.val();
-                let lastRecordedTime = 0;
+    // ==========================================
+    // HELPER: EMAIL SENDER
+    // ==========================================
+    function sendEmailAlert(paramName, val, msg, storageKey) {
+        const lastSent = localStorage.getItem(storageKey);
+        const now = Date.now();
 
-                if (data) {
-                    const key = Object.keys(data)[0];
-                    // Use timestamp if available, otherwise assume 0
-                    lastRecordedTime = data[key].timestamp || 0; 
-                }
-
-                const now = Date.now();
-                // 15 Minutes = 900,000 milliseconds
-                if (now - lastRecordedTime > 900000) {
-                    
-                    const timeString = new Date().toLocaleTimeString('en-US', { 
-                        hour: 'numeric', minute: '2-digit', hour12: true 
-                    });
-
-                    ref.push({
-                        value: currentValue,
-                        time: timeString,
-                        timestamp: now
-                    });
-                    console.log(`Auto-Recorded history to ${folderName}`);
-                }
+        // Throttle: Send only once per hour
+        if (!lastSent || (now - lastSent > 3600000)) {
+            emailjs.send("service_js0niy1", "template_fslbcqb", {
+                parameter: paramName,
+                current_value: val,
+                tank_type: "RIMO Goldfish Tank",
+                time: new Date().toLocaleTimeString(),
+                safe_range: "Normal Range",
+                message: msg,
+                user_email: userEmail
+            }).then(() => {
+                console.log(`Email sent for ${paramName}`);
+                localStorage.setItem(storageKey, now);
             });
         }
-
-
-        // --- HELPER: EMAIL SENDER ---
-        function sendEmailAlert(paramName, val, msg, storageKey) {
-            const lastSent = localStorage.getItem(storageKey);
-            const now = Date.now();
-
-            if (!lastSent || (now - lastSent > 3600000)) {
-                emailjs.send("service_js0niy1", "template_fslbcqb", {
-                    parameter: paramName,
-                    current_value: val,
-                    tank_type: "RIMO Goldfish Tank",
-                    time: new Date().toLocaleTimeString(),
-                    safe_range: "Normal Range",
-                    message: msg,
-                    user_email: userEmail
-                }).then(() => {
-                    console.log(`Email sent for ${paramName}`);
-                    localStorage.setItem(storageKey, now);
-                });
-            }
-        }
-
-    </script>
-</body>
-</html>
+    }
+</script>
