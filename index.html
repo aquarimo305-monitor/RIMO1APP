@@ -86,7 +86,6 @@
             </div>
         </div>
     </div>
-
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
     
@@ -118,17 +117,18 @@
         const db = firebase.database();
 
 
-        // --- 1. TEMPERATURE (Reads from History) ---
+        // --- 1. TEMPERATURE (Reads Latest from 'temp_history') ---
         db.ref('temp_history').limitToLast(1).on('value', (snapshot) => {
             const data = snapshot.val(); 
             if (data) {
+                // Get the last key (the newest one)
                 const key = Object.keys(data)[0];
                 const val = parseFloat(data[key].value);
 
-                // Handle Sensor Disconnect Error
+                // Handle Sensor Error (-127)
                 if (val === -127) {
                     document.getElementById('disp-temp').innerText = "Err";
-                    document.getElementById('alert-zone').innerHTML = `<div class="alert alert-warning shadow-sm">⚠️ <b>Check Wiring:</b> Temp Sensor disconnected (-127).</div>`;
+                    document.getElementById('alert-zone').innerHTML = `<div class="alert alert-warning shadow-sm">⚠️ <b>Check Wiring:</b> Temp Sensor disconnected.</div>`;
                 } else {
                     document.getElementById('disp-temp').innerText = val + "°C";
 
@@ -138,6 +138,7 @@
                         alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>Warning:</b> Tank temperature is ${val}°C. Check Heater!</div>`;
                         sendEmailAlert("Temperature", val + "°C", "Temperature Critical!", "last_temp_email");
                     } else {
+                        // Only clear if pH is also safe
                         if(!document.getElementById('alert-zone').innerHTML.includes("pH")) {
                             alertZone.innerHTML = ""; 
                         }
@@ -147,7 +148,7 @@
         });
 
 
-        // --- 2. pH LISTENER (Reads from History) ---
+        // --- 2. pH LISTENER (Reads Latest from 'ph_history') ---
         db.ref('ph_history').limitToLast(1).on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
@@ -166,7 +167,7 @@
         });
 
 
-        // --- 3. CAMERA LISTENER ---
+        // --- 3. CAMERA LISTENER (Reads Latest from 'image_urls') ---
         db.ref('image_urls').limitToLast(1).on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
@@ -178,8 +179,7 @@
         });
 
 
-        // --- 4. FEEDER LISTENER ---
-        // Reads from history to be safe
+        // --- 4. FEEDER LISTENER (Reads Latest from 'feeder_history') ---
         db.ref('feeder_history').limitToLast(1).on('value', (snapshot) => {
             const data = snapshot.val();
             if (data) {
@@ -211,7 +211,8 @@
                 });
             }
         }
-
     </script>
-</body>
+    </body>
 </html>
+
+    <
