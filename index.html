@@ -1,130 +1,180 @@
-<script>
-    // --- AUTH CHECK ---
-    const userEmail = localStorage.getItem('rimo_email');
-    if (!userEmail) window.location.href = "login.html";
-    function logout() {
-        localStorage.removeItem('rimo_email');
-        window.location.href = 'login.html';
-    }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RIMO | BIRAC Project Dashboard</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-    // --- INITIALIZE EMAIL SYSTEM ---
-    emailjs.init("TaAvoWcHSyIX4HQ37");
+    <style>
+        :root {
+            --primary: #00bcd4;
+            --dark: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--dark);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+        }
 
-    // --- FIREBASE CONFIG ---
-    const firebaseConfig = {
-        apiKey: "AIzaSyBlFo_hv6jsDAJHIRY_6kLe8mPW-0rB8ME",
-        authDomain: "rimo-4c770.firebaseapp.com",
-        databaseURL: "https://rimo-4c770-default-rtdb.firebaseio.com",
-        projectId: "rimo-4c770",
-        storageBucket: "rimo-4c770.firebasestorage.app",
-        messagingSenderId: "472011782582",
-        appId: "1:472011782582:web:3ae7e6b069105c963f2917"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #333;
+            margin-bottom: 20px;
+        }
+        h1 { margin: 0; font-size: 1.5rem; }
+        .status-dot {
+            height: 12px; width: 12px;
+            background-color: #gray;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .online { background-color: #00ff00; box-shadow: 0 0 10px #00ff00; }
 
+        /* Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
 
-    // ==========================================
-    // 1. TEMPERATURE (Read from History, NOT tank_stats)
-    // ==========================================
-    // We grab the LAST 1 entry from history to use as "Live Data"
-    db.ref('temp_history').limitToLast(1).on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            const key = Object.keys(data)[0];
-            const val = parseFloat(data[key].value); // Grab value from history
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .card h3 { color: #aaa; margin-top: 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;}
+        .value { font-size: 2.5rem; font-weight: bold; margin: 10px 0; color: var(--primary); }
+        .unit { font-size: 1rem; color: #888; }
 
-            // Handle "Sensor Error" (-127 is the code for disconnected wire)
-            if (val === -127) {
-                document.getElementById('disp-temp').innerText = "Err";
-                document.getElementById('alert-zone').innerHTML = `<div class="alert alert-warning shadow-sm">⚠️ <b>Check Wiring:</b> Temp Sensor disconnected (-127).</div>`;
-            } else {
-                document.getElementById('disp-temp').innerText = val + "°C";
+        /* Water Level Indicators */
+        .water-levels { display: flex; justify-content: space-around; margin-top: 15px; }
+        .level-box {
+            padding: 8px 15px;
+            border-radius: 6px;
+            background: #444;
+            font-size: 0.8rem;
+            opacity: 0.3;
+        }
+        .active { opacity: 1; background: var(--primary); color: #000; font-weight: bold; }
+
+        /* Camera Section */
+        .camera-feed img {
+            width: 100%;
+            border-radius: 8px;
+            border: 2px solid #444;
+            max-width: 500px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>RIMO Dashboard</h1>
+        <div style="font-size: 0.9rem;">
+            System Status: <span id="status-text">Connecting...</span> <span id="status-indicator" class="status-dot"></span>
+        </div>
+    </header>
+
+    <div class="dashboard-grid">
+        <div class="card">
+            <h3>pH Level</h3>
+            <div class="value" id="ph-display">--</div>
+            <div class="unit">Raw ADC Value</div>
+        </div>
+
+        <div class="card">
+            <h3>Water Temperature</h3>
+            <div class="value"><span id="temp-display">--</span>°C</div>
+        </div>
+
+        <div class="card">
+            <h3>Water Level</h3>
+            <div class="water-levels">
+                <div id="wl-low" class="level-box">LOW</div>
+                <div id="wl-med" class="level-box">MED</div>
+                <div id="wl-high" class="level-box">HIGH</div>
+            </div>
+            <p style="font-size: 0.8rem; color:#888; margin-top:10px;">Live Sensor Status</p>
+        </div>
+
+        <div class="card camera-feed">
+            <h3>Latest Feed</h3>
+            <img id="cam-image" src="" alt="Waiting for data...">
+            <div style="margin-top:10px; font-size: 0.8rem; color:#888;">Updated: <span id="img-time">--</span></div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Firebase Configuration (Matches your ESP32 Code)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlFo_hv6jSDAJhIRY_6kLe8mPW-0rB8ME",
+            authDomain: "rimo-4c770.firebaseapp.com",
+            databaseURL: "https://rimo-4c770-default-rtdb.firebaseio.com",
+            projectId: "rimo-4c770",
+            storageBucket: "rimo-4c770.firebasestorage.app",
+            messagingSenderId: "YOUR_ID", // Optional for this view
+            appId: "YOUR_APP_ID"          // Optional for this view
+        };
+
+        // 2. Initialize Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        // 3. Sensor Data Listener
+        // Reads from the path we set in ESP32: /rimo_system/sensors
+        db.ref('rimo_system/sensors').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                // Update Status
+                document.getElementById('status-indicator').classList.add('online');
+                document.getElementById('status-text').innerText = "Online";
+
+                // Update pH (Raw Value)
+                if(data.ph_raw !== undefined) document.getElementById('ph-display').innerText = data.ph_raw;
                 
-                // Alert Logic
-                const alertZone = document.getElementById('alert-zone');
-                if (val < 18 || val > 28) {
-                    alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>Warning:</b> Tank temp is ${val}°C. Check Heater!</div>`;
-                    sendEmailAlert("Temperature", val + "°C", "Critical Temperature!", "last_temp_email");
-                } else {
-                    if(!document.getElementById('alert-zone').innerHTML.includes("pH")) alertZone.innerHTML = ""; 
-                }
+                // Update Temp
+                if(data.temperature !== undefined) document.getElementById('temp-display').innerText = data.temperature.toFixed(1);
+
+                // Update Water Levels
+                // Reset classes
+                document.getElementById('wl-low').classList.remove('active');
+                document.getElementById('wl-med').classList.remove('active');
+                document.getElementById('wl-high').classList.remove('active');
+
+                // Apply active class if data says "Active"
+                if(data.water_low === "Active") document.getElementById('wl-low').classList.add('active');
+                if(data.water_med === "Active") document.getElementById('wl-med').classList.add('active');
+                if(data.water_high === "Active") document.getElementById('wl-high').classList.add('active');
             }
-        }
-    });
+        });
 
-
-    // ==========================================
-    // 2. pH SYSTEM (Read from History, NOT tank_stats)
-    // ==========================================
-    db.ref('ph_history').limitToLast(1).on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            const key = Object.keys(data)[0];
-            const val = parseFloat(data[key].value); // Grab value from history
-
-            document.getElementById('disp-ph').innerText = val;
-
-            // Alert Logic
-            const alertZone = document.getElementById('alert-zone');
-            if (val < 6.5 || val > 8.0) {
-                alertZone.innerHTML = `<div class="alert alert-danger shadow-sm">⚠️ <b>CRITICAL:</b> pH is ${val}! Water unsafe.</div>`;
-                sendEmailAlert("pH Level", val, "pH Unstable! Check Water.", "last_ph_email");
+        // 4. Camera Image Listener
+        // Reads the latest URL added to: /image_urls
+        db.ref('image_urls').limitToLast(1).on('child_added', (snapshot) => {
+            const url = snapshot.val();
+            if (url) {
+                document.getElementById('cam-image').src = url;
+                const date = new Date();
+                document.getElementById('img-time').innerText = date.toLocaleTimeString();
             }
-        }
-    });
+        });
 
-
-    // ==========================================
-    // 3. CAMERA (Reads from image_urls)
-    // ==========================================
-    // You confirmed this folder is updating correctly
-    db.ref('image_urls').limitToLast(1).on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            const key = Object.keys(data)[0];
-            const imageUrl = data[key];
-            document.getElementById('latest-img').src = imageUrl;
-            document.getElementById('snap-timestamp').innerText = "Live Capture";
-        }
-    });
-
-
-    // ==========================================
-    // 4. FEEDER (Reads from feeder_history)
-    // ==========================================
-    // Switching this to history as well, just in case
-    db.ref('feeder_history').limitToLast(1).on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            const key = Object.keys(data)[0];
-            const lastFeedTime = data[key].time;
-            document.getElementById('last-feed').innerText = lastFeedTime;
-        }
-    });
-
-
-    // ==========================================
-    // HELPER: EMAIL SENDER
-    // ==========================================
-    function sendEmailAlert(paramName, val, msg, storageKey) {
-        const lastSent = localStorage.getItem(storageKey);
-        const now = Date.now();
-
-        // Throttle: Send only once per hour
-        if (!lastSent || (now - lastSent > 3600000)) {
-            emailjs.send("service_js0niy1", "template_fslbcqb", {
-                parameter: paramName,
-                current_value: val,
-                tank_type: "RIMO Goldfish Tank",
-                time: new Date().toLocaleTimeString(),
-                safe_range: "Normal Range",
-                message: msg,
-                user_email: userEmail
-            }).then(() => {
-                console.log(`Email sent for ${paramName}`);
-                localStorage.setItem(storageKey, now);
-            });
-        }
-    }
-</script>
+    </script>
+</body>
+</html>
