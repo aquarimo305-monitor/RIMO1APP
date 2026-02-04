@@ -21,10 +21,10 @@
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto text-center">
             <li class="nav-item"><a class="nav-link" href="index.html">🏠 Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" href="camera.html">📷 Camera</a></li>
-            <li class="nav-item"><a class="nav-link active" href="ph.html">💧 pH History</a></li>
-            <li class="nav-item"><a class="nav-link" href="temp.html">🌡️ Temp History</a></li>
-            <li class="nav-item"><a class="nav-link" href="feeder.html">🐟 Feeder</a></li>
+            <li class="nav-item"><a class="nav-link" href="camera.html">📷 Camera Gallery</a></li>
+            <li class="nav-item"><a class="nav-link active" href="ph.html">💧 pH Graph</a></li>
+            <li class="nav-item"><a class="nav-link" href="temp.html">🌡️ Temp Graph</a></li>
+            <li class="nav-item"><a class="nav-link" href="feeder.html">🐟 Feeder Log</a></li>
             <li class="nav-item"><a class="nav-link text-danger" href="#" onclick="logout()">🚪 Logout</a></li>
           </ul>
         </div>
@@ -94,26 +94,28 @@
                 }]
             },
             options: {
-                scales: {
-                    y: { min: 6.0, max: 9.0 }
+                scales: { 
+                    y: { min: 4.0, max: 10.0 } 
                 }
             }
         });
 
-        // 5. Data Listener & Alert Logic
+        // 5. Data Listener (READS FROM ph_history)
         let lastEmailSent = 0;
 
-        db.ref('ph_history').limitToLast(15).on('value', (snapshot) => {
+        db.ref('ph_history').limitToLast(20).on('value', (snapshot) => {
             const data = snapshot.val();
             const labels = [];
             const values = [];
 
             if (data) {
                 Object.keys(data).forEach(key => {
-                    // Check if data is valid
-                    if (key !== 'init' && data[key].time && data[key].value) {
-                        labels.push(data[key].time);
-                        values.push(data[key].value);
+                    const item = data[key];
+                    // Ensure valid data exists
+                    if (item.time && item.value) {
+                        labels.push(item.time);
+                        // Force value to be a number (Fixes graph issues)
+                        values.push(parseFloat(item.value));
                     }
                 });
 
@@ -126,7 +128,7 @@
                 const alertDiv = document.getElementById('ph-alert-msg');
 
                 if (latestPh < limits.min || latestPh > limits.max) {
-                    alertDiv.innerHTML = `<div class="alert alert-warning">⚠️ Critical pH: ${latestPh}. Ideal for ${tankType}: ${limits.min}-${limits.max}</div>`;
+                    alertDiv.innerHTML = `<div class="alert alert-warning">⚠️ Critical pH: ${latestPh}. Ideal: ${limits.min}-${limits.max}</div>`;
                     
                     // Send Warning Email (Limit: 1 per hour)
                     const now = Date.now();
@@ -140,7 +142,7 @@
             }
         });
 
-        // 6. Complete EmailJS Function
+        // 6. Email Function
         function sendWarning(val) {
             const now = new Date();
             const timeString = now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
@@ -152,7 +154,7 @@
                 current_value: val,
                 time: timeString,
                 safe_range: `${limits.min}-${limits.max}`,
-                message: `The pH level in your ${tankType} aquarium has drifted to ${val}. High waste levels from goldfish can cause this drop.`
+                message: `The pH level in your ${tankType} aquarium has drifted to ${val}.`
             }, "TaAvoWcHSyIX4HQ37").then(() => console.log("pH Warning Sent Email"));
         }
     </script>
